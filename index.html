@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>虚拟低音</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#08080c;--s1:#111118;--s2:#1a1a24;--ac:#e8a43c;--ag:rgba(232,164,60,.3);--t:#e8e4dc;--tm:#6a6660;--bd:rgba(255,255,255,.06);--ok:#40c878;--er:#e84040}
+html,body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--t);-webkit-font-smoothing:antialiased}
+body{min-height:100vh;min-height:100dvh;padding:18px 14px 32px;display:flex;flex-direction:column;align-items:center;background:radial-gradient(ellipse at 30% 0%,rgba(232,164,60,.03) 0%,transparent 60%),var(--bg)}
+.wrap{width:100%;max-width:420px}
+header{text-align:center;margin-bottom:18px}
+header h1{font-family:'Instrument Serif',serif;font-size:1.85rem;font-weight:400}
+header h1 em{color:var(--ac);font-style:italic}
+header p{font-size:.58rem;color:var(--tm);margin-top:4px;letter-spacing:.1em;text-transform:uppercase}
+
+.vz{width:100%;aspect-ratio:16/7;border-radius:10px;overflow:hidden;background:var(--bg);position:relative;margin-bottom:14px}
+.vz canvas{width:100%;height:100%;display:block}
+.vz-lb{position:absolute;bottom:4px;left:0;right:0;display:flex;justify-content:space-between;padding:0 8px;pointer-events:none}
+.vz-lb span{font-size:.42rem;color:rgba(255,255,255,.12)}
+
+.st{display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:14px;font-size:.58rem;color:var(--tm);min-height:22px}
+.st-dot{width:7px;height:7px;border-radius:50%;background:var(--tm);transition:all .3s}
+.st-dot.on{background:var(--er);box-shadow:0 0 8px rgba(232,64,64,.5)}
+.st-dot.ok{background:var(--ok);box-shadow:0 0 8px rgba(64,200,120,.4)}
+.st .er{color:var(--er)}.st .ok{color:var(--ok)}.st .ac{color:var(--ac)}
+
+.diag{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:12px;margin-bottom:12px;font-size:.55rem;line-height:1.8;color:var(--tm)}
+.diag .good{color:var(--ok)}.diag .bad{color:var(--er)}.diag .warn{color:var(--ac)}
+.diag-log{background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:8px;margin-top:8px;font-size:.5rem;max-height:160px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;color:var(--tm);line-height:1.6}
+
+.main-btn{width:100%;padding:15px;border:2px solid var(--ac);border-radius:14px;background:0;color:var(--ac);font-family:'DM Mono',monospace;font-size:.78rem;cursor:pointer;letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px}
+.main-btn:active{transform:scale(.97);background:rgba(232,164,60,.08)}
+.main-btn.running{border-color:var(--er);color:var(--er);animation:pr 2s ease-in-out infinite}
+.main-btn .ic{font-size:1.1rem}
+.main-btn:disabled{opacity:.3;pointer-events:none}
+
+.tog{width:100%;padding:13px;border:1.5px solid var(--bd);border-radius:12px;background:0;color:var(--tm);font-family:'DM Mono',monospace;font-size:.68rem;cursor:pointer;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}
+.tog.on{border-color:var(--ac);color:var(--bg);background:var(--ac);box-shadow:0 0 24px var(--ag);animation:pu 2.5s ease-in-out infinite}
+.tog:disabled{opacity:.25;pointer-events:none}
+
+.pip-btn{width:100%;padding:10px;border:1px dashed var(--bd);border-radius:10px;background:0;color:var(--tm);font-family:'DM Mono',monospace;font-size:.55rem;cursor:pointer;margin-bottom:14px}
+.pip-btn:disabled{opacity:.2;pointer-events:none}
+.pip-btn.active{border-color:var(--ok);color:var(--ok);border-style:solid}
+
+.panel{background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:12px}
+.pnl-lb{font-size:.52rem;color:var(--tm);text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px}
+.ct{margin-bottom:13px}.ct:last-child{margin-bottom:0}
+.ct-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.ct-n{font-size:.55rem;color:var(--tm);text-transform:uppercase;letter-spacing:.06em}
+.ct-v{font-size:.55rem;color:var(--ac);font-weight:500;min-width:48px;text-align:right}
+input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:2px;background:var(--s2);outline:none;cursor:pointer;touch-action:pan-y}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--ac);border:3px solid var(--bg);box-shadow:0 0 10px var(--ag)}
+input[type=range]::-webkit-slider-thumb:active{box-shadow:0 0 22px var(--ag)}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--ac);border:3px solid var(--bg)}
+input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:var(--s2)}
+.pres{display:flex;gap:6px;margin-bottom:14px}
+.pr{flex:1;padding:8px 2px;border:1px solid var(--bd);border-radius:7px;background:0;color:var(--tm);font-family:'DM Mono',monospace;font-size:.52rem;cursor:pointer;text-transform:uppercase;text-align:center}
+.pr:active,.pr.on{border-color:var(--ac);color:var(--ac);background:rgba(232,164,60,.06)}
+.tips{margin-top:8px}.tips ol{padding-left:16px;font-size:.52rem;color:var(--tm);line-height:2}.tips ol strong{color:var(--t)}
+
+@keyframes pu{0%,100%{box-shadow:0 0 20px var(--ag)}50%{box-shadow:0 0 36px var(--ag)}}
+@keyframes pr{0%,100%{box-shadow:0 0 12px rgba(232,64,64,.15)}50%{box-shadow:0 0 28px rgba(232,64,64,.25)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>Virtual <em>Bass</em></h1><p>屏幕音频 · 实时低音增强</p></header>
+
+  <div class="vz"><canvas id="c"></canvas>
+    <div class="vz-lb"><span>20Hz</span><span>200</span><span>1k</span><span>5k</span><span>20kHz</span></div>
+  </div>
+
+  <div class="st"><span class="st-dot" id="dot"></span><span id="stxt">等待开始</span></div>
+
+  <div class="diag" id="binfo">正在检测环境…</div>
+
+  <button class="main-btn" id="mbtn" disabled><span class="ic">▶</span>开始屏幕共享</button>
+  <button class="tog" id="tbtn" disabled>启用低音增强</button>
+  <button class="pip-btn" id="pbtn" disabled>⬜ 开启画中画</button>
+
+  <div class="panel">
+    <div class="pnl-lb">参数</div>
+    <div class="ct"><div class="ct-h"><span class="ct-n">增强量</span><span class="ct-v" id="vMi">65%</span></div><input type="range" id="rMi" min="0" max="100" value="65"></div>
+    <div class="ct"><div class="ct-h"><span class="ct-n">截止频率</span><span class="ct-v" id="vCu">200Hz</span></div><input type="range" id="rCu" min="60" max="400" value="200"></div>
+    <div class="ct"><div class="ct-h"><span class="ct-n">谐波驱动</span><span class="ct-v" id="vDr">45%</span></div><input type="range" id="rDr" min="0" max="100" value="45"></div>
+    <div class="ct"><div class="ct-h"><span class="ct-n">音量</span><span class="ct-v" id="vVo">80%</span></div><input type="range" id="rVo" min="0" max="100" value="80"></div>
+  </div>
+
+  <div class="pres">
+    <button class="pr" data-p="s">轻柔</button>
+    <button class="pr on" data-p="m">适中</button>
+    <button class="pr" data-p="h">强劲</button>
+    <button class="pr" data-p="e">极端</button>
+  </div>
+
+  <div class="tips">
+    <ol>
+      <li>点击「<strong>开始屏幕共享</strong>」</li>
+      <li>选择「<strong>整个屏幕</strong>」并勾选「<strong>共享音频</strong>」</li>
+      <li>点击「<strong>启用低音增强</strong>」</li>
+      <li>点击「<strong>开启画中画</strong>」</li>
+      <li>切换到<strong>音乐App</strong>播放</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+/* ═══ 环境检测 ═══ */
+(function(){
+  const ua=navigator.userAgent;
+  const dm=navigator.mediaDevices||{};
+  const info=$('binfo');
+  const log=[];
+
+  /* 浏览器名 */
+  let bn='未知';
+  if(/Edg\//.test(ua))bn='Edge';else if(/Chrome\//.test(ua))bn='Chrome';
+  else if(/Firefox\//i.test(ua))bn='Firefox';else if(/Safari\//i.test(ua))bn='Safari';
+  else if(/SamsungBrowser/i.test(ua))bn='Samsung';else if(/MiuiBrowser/i.test(ua))bn='小米';
+
+  /* 系统 */
+  const os=ua.match(/Android\s[\d.]+/)?.[0]||'未知系统';
+
+  log.push('浏览器: '+bn);
+  log.push('系统: '+os);
+  log.push('HTTPS: '+(window.isSecureContext?'✓':'✗'));
+  log.push('mediaDevices: '+(typeof dm));
+  log.push('getDisplayMedia: '+(typeof dm.getDisplayMedia));
+  log.push('getDisplayMedia in: '+('getDisplayMedia' in dm));
+
+  /* 如果存在则测试调用 */
+  if(typeof dm.getDisplayMedia==='function'){
+    log.push('API 存在，可以尝试');
+    info.innerHTML=log.map(l=>'  '+l).join('\n')+'\n\n<div class="warn">✓ API 可用，点击按钮开始</div>';
+    $('mbtn').disabled=false;
+  }else{
+    log.push('--- 尝试直接调用测试 ---');
+    /* 尝试调用，看具体报什么错 */
+    try{
+      const p=navigator.mediaDevices.getDisplayMedia({video:true});
+      if(p&&typeof p.then==='function'){
+        log.push('调用成功! 返回了 Promise');
+        p.then(s=>{s.getTracks().forEach(t=>t.stop());}).catch(e=>{log.push('调用被拒绝: '+e.name+' - '+e.message);});
+        info.innerHTML='<div class="warn">API 似乎存在但检测遗漏</div>\n<div class="diag-log">'+log.join('\n')+'</div>';
+        $('mbtn').disabled=false;
+      }
+    }catch(e){
+      log.push('调用异常: '+e.name+' - '+e.message);
+      /* 检查可能的替代方案 */
+      log.push('--- 尝试替代方案 ---');
+      log.push('navigator.mediaDevices 属性:');
+      try{
+        const keys=Object.getOwnPropertyNames(Object.getPrototypeOf(dm));
+        log.push('  '+keys.join(', '));
+      }catch(e2){log.push('  无法枚举');}
+
+      let suggestions='';
+      if(/MiuiBrowser|XiaoMi|Redmi|POCO/i.test(ua)){
+        suggestions='<div style="margin-top:8px"><b style="color:var(--er)">小米手机可能限制了屏幕共享API</b></div>';
+        suggestions+='<div style="margin-top:4px">建议方案:</div>';
+        suggestions+='<div>1. 安装 <b style="color:var(--ac)">Microsoft Edge</b> 浏览器重试</div>';
+        suggestions+='<div>2. 安装 <b style="color:var(--ac)">Firefox</b> 浏览器重试</div>';
+        suggestions+='<div>3. Chrome 地址栏输入 <b>chrome://flags</b> 搜索 screen 启用相关选项</div>';
+      }else{
+        suggestions='<div style="margin-top:8px;color:var(--er)">此浏览器/设备不支持屏幕共享</div>';
+        suggestions+='<div>请安装 <b style="color:var(--ac)">Edge</b> 或 <b style="color:var(--ac)">Firefox</b> 浏览器</div>';
+      }
+
+      info.innerHTML='<div class="diag-log">'+log.join('\n')+'</div>'+suggestions;
+      $('mbtn').disabled=true;
+    }
+  }
+})();
+
+/* ═══ State ═══ */
+let ctx,str,src,en=false,ac=false,vizR=null,pipV=null,wl=null;
+const P={cu:200,dr:45,mi:65,vo:80};
+const ps={s:{cu:140,dr:25,mi:35,vo:80},m:{cu:200,dr:45,mi:65,vo:80},h:{cu:280,dr:70,mi:82,vo:75},e:{cu:360,dr:90,mi:95,vo:65}};
+
+/* ═══ Audio ═══ */
+let l1,l2,wh,hp,wg,og,cp,an;
+function init(){
+  if(ctx)return;
+  ctx=new(window.AudioContext||window.webkitAudioContext)();
+  l1=ctx.createBiquadFilter();l1.type='lowpass';l1.frequency.value=P.cu;l1.Q.value=.707;
+  l2=ctx.createBiquadFilter();l2.type='lowpass';l2.frequency.value=P.cu;l2.Q.value=.707;
+  wh=ctx.createWaveShaper();wh.curve=mkC(P.dr);wh.oversample='4x';
+  hp=ctx.createBiquadFilter();hp.type='highpass';hp.frequency.value=35;hp.Q.value=.707;
+  wg=ctx.createGain();wg.gain.value=0;
+  og=ctx.createGain();og.gain.value=P.vo/100;
+  cp=ctx.createDynamicsCompressor();cp.threshold.value=-3;cp.ratio.value=6;cp.attack.value=.003;cp.release.value=.06;
+  an=ctx.createAnalyser();an.fftSize=512;an.smoothingTimeConstant=.82;
+  l1.connect(l2);l2.connect(wh);wh.connect(hp);hp.connect(wg);
+  wg.connect(og);og.connect(cp);cp.connect(an);an.connect(ctx.destination);
+}
+function mkC(d){const n=65536,c=new Float32Array(n),k=1+d/100*19;for(let i=0;i<n;i++){const x=i*2/n-1;c[i]=Math.tanh(x*k)/Math.tanh(k);}return c;}
+
+/* ═══ Screen Share ═══ */
+async function start(){
+  const btn=$('mbtn');
+  try{
+    btn.disabled=true;
+    st('ac','正在请求…');
+    str=await navigator.mediaDevices.getDisplayMedia({video:true,audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    const at=str.getAudioTracks();
+    if(!at.length){stop();st('er','未捕获音频 — 请勾选「共享音频」');btn.disabled=false;return;}
+    st('ac','初始化…');
+    init();await ctx.resume();
+    src=ctx.createMediaStreamSource(str);src.connect(l1);src.connect(og);
+    ac=true;
+    btn.classList.add('running');btn.innerHTML='<span class="ic">■</span>停止共享';btn.disabled=false;
+    $('tbtn').disabled=false;$('pbtn').disabled=false;
+    st('ok','● 正在捕获系统音频');
+    str.getVideoTracks().forEach(t=>t.onended=stop);
+    startViz();reqWL();
+  }catch(e){
+    btn.disabled=false;
+    if(e.name==='NotAllowedError')st('','已取消');
+    else{
+      st('er',e.name+': '+e.message);
+      /* 显示详细信息 */
+      const log=$('.diag-log')||document.createElement('div');
+      log.className='diag-log';
+      log.style.marginTop='8px';
+      log.textContent='错误详情:\n名称: '+e.name+'\n信息: '+e.message+'\n堆栈: '+(e.stack||'无');
+      if(!log.parentNode)$('binfo').appendChild(log);
+    }
+  }
+}
+
+function stop(){
+  if(str){str.getTracks().forEach(t=>t.stop());str=null;}
+  if(src){try{src.disconnect();}catch(e){}src=null;}
+  ac=false;en=false;
+  const btn=$('mbtn');btn.classList.remove('running');btn.innerHTML='<span class="ic">▶</span>开始屏幕共享';
+  $('tbtn').disabled=true;$('tbtn').classList.remove('on');$('tbtn').textContent='启用低音增强';
+  $('pbtn').disabled=true;$('pbtn').classList.remove('active');
+  relWL();exPiP();st('','已停止');
+  if(vizR){cancelAnimationFrame(vizR);vizR=null;}drawIdle();
+}
+
+function tog(){
+  en=!en;const b=$('tbtn');b.classList.toggle('on',en);b.textContent=en?'低音增强中':'启用低音增强';
+  $('dot').className=ac?'st-dot '+(en?'on':'ok'):'st-dot';
+  if(!ctx)return;const t=ctx.currentTime;wg.gain.cancelScheduledValues(t);wg.gain.linearRampToValueAtTime(en?P.mi/100:0,t+.04);
+}
+
+async function pip(){
+  if(document.pictureInPictureElement){exPiP();return;}
+  if(!str)return;
+  try{
+    if(!pipV){pipV=document.createElement('video');pipV.srcObject=str;pipV.muted=true;pipV.style.cssText='position:fixed;top:-9999px';document.body.appendChild(pipV);}
+    await pipV.play();await pipV.requestPictureInPicture();
+    $('pbtn').textContent='⬛ 关闭画中画';$('pbtn').classList.add('active');
+    pipV.addEventListener('leavepictureinpicture',()=>{$('pbtn').textContent='⬜ 开启画中画';$('pbtn').classList.remove('active');},{once:true});
+  }catch(e){$('pbtn').textContent='画中画不可用';}
+}
+function exPiP(){if(document.pictureInPictureElement)document.exitPictureInPicture().catch(()=>{});}
+
+async function reqWL(){try{wl=await navigator.wakeLock.request('screen');}catch(e){}}
+function relWL(){if(wl){wl.release();wl=null;}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&ac)reqWL();});
+
+/* ═══ Params ═══ */
+const sl={rMi:'mi',rCu:'cu',rDr:'dr',rVo:'vo'};
+const vl={mi:'vMi',cu:'vCu',dr:'vDr',vo:'vVo'};
+const fm={mi:v=>v+'%',cu:v=>v+'Hz',dr:v=>v+'%',vo:v=>v+'%'};
+function uSl(id){
+  const k=sl[id],v=+$(id).value;P[k]=v;$(vl[k]).textContent=fm[k](v);cTr($(id));
+  if(!ctx)return;const t=ctx.currentTime;
+  if(k==='cu'){l1.frequency.linearRampToValueAtTime(v,t+.02);l2.frequency.linearRampToValueAtTime(v,t+.02);}
+  else if(k==='dr')wh.curve=mkC(v);
+  else if(k==='mi'){if(en)wg.gain.linearRampToValueAtTime(v/100,t+.02);}
+  else if(k==='vo')og.gain.linearRampToValueAtTime(v/100,t+.02);
+}
+function cTr(s){const p=(s.value-s.min)/(s.max-s.min)*100;s.style.background=`linear-gradient(to right,var(--ac) ${p}%,var(--s2) ${p}%)`;}
+function aPre(n){const p=ps[n];if(!p)return;const m={cu:'rCu',dr:'rDr',mi:'rMi',vo:'rVo'};Object.keys(p).forEach(k=>{$(m[k]).value=p[k];P[k]=p[k];uSl(m[k]);});document.querySelectorAll('.pr').forEach(b=>b.classList.toggle('on',b.dataset.p===n));}
+function st(cls,txt){$('dot').className='st-dot'+(cls?' '+cls:'');$('stxt').innerHTML=txt;}
+
+/* ═══ Viz ═══ */
+function startViz(){
+  const cv=$('c'),c=cv.getContext('2d'),dpr=devicePixelRatio||1,W=cv.offsetWidth,H=cv.offsetHeight;
+  cv.width=W*dpr;cv.height=H*dpr;
+  const bl=an.frequencyBinCount,d=new Uint8Array(bl),nb=56,gap=2.5,bw=(W-gap*(nb-1))/nb,sr=ctx.sampleRate,ny=sr/2;
+  const btf=i=>{const a=Math.log10(20),b=Math.log10(14000);return Math.pow(10,a+i/nb*(b-a));};
+  const ftb=f=>{const a=Math.log10(20),b=Math.log10(14000);return Math.floor((Math.log10(Math.max(20,f))-a)/(b-a)*nb);};
+  function draw(){
+    vizR=requestAnimationFrame(draw);an.getByteFrequencyData(d);
+    const cb=ftb(P.cu);
+    c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,W,H);
+    for(let i=0;i<nb;i++){
+      const fL=btf(i),fH=btf(i+1),bL=Math.max(0,Math.floor(fL/ny*bl)),bH=Math.min(bl-1,Math.ceil(fH/ny*bl));
+      let s=0,n=0;for(let b=bL;b<=bH;b++){s+=d[b];n++;}
+      const v=n?s/n/255:0,bh=Math.max(1.5,v*H*.88),x=i*(bw+gap),y=H-bh;
+      if(i<=cb){c.fillStyle=`rgba(232,164,60,${.15+v*.85})`;c.shadowColor='rgba(232,164,60,.1)';c.shadowBlur=v*10;}
+      else{c.fillStyle=`rgba(140,135,128,${.05+v*.3})`;c.shadowColor='transparent';c.shadowBlur=0;}
+      c.fillRect(x,y,bw,bh);
+    }
+    c.shadowColor='transparent';c.shadowBlur=0;
+    if(en){const cx=cb*(bw+gap)+bw+gap/2;c.strokeStyle='rgba(232,164,60,.15)';c.lineWidth=1;c.setLineDash([3,3]);c.beginPath();c.moveTo(cx,0);c.lineTo(cx,H);c.stroke();c.setLineDash([]);}
+  }
+  draw();
+}
+function drawIdle(){
+  const cv=$('c'),c=cv.getContext('2d'),dpr=devicePixelRatio||1,W=cv.offsetWidth,H=cv.offsetHeight;
+  cv.width=W*dpr;cv.height=H*dpr;c.setTransform(dpr,0,0,dpr,0,0);
+  const nb=56,gap=2.5,bw=(W-gap*(nb-1))/nb;
+  for(let i=0;i<nb;i++){c.fillStyle='rgba(232,164,60,.04)';c.fillRect(i*(bw+gap),H-2,bw,2);}
+}
+
+/* ═══ Events ═══ */
+function $(id){return document.getElementById(id)}
+$('mbtn').addEventListener('click',()=>{if(ac)stop();else start();});
+$('tbtn').addEventListener('click',tog);
+$('pbtn').addEventListener('click',pip);
+Object.keys(sl).forEach(id=>{const el=$(id);el.addEventListener('input',()=>uSl(id));cTr(el);});
+document.querySelectorAll('.pr').forEach(b=>b.addEventListener('click',()=>aPre(b.dataset.p)));
+drawIdle();
+</script>
+</body>
+</html>
